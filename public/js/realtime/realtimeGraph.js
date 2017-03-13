@@ -10,11 +10,16 @@
 * IBM - Initial Contribution
 *******************************************************************************/
 
+var parametersPerDevice = [];
+var globalKey = 0;
+var seriesData = [];
+
+
 var RealtimeGraph = function(){
 
 	var palette = new Rickshaw.Color.Palette( { scheme: [
-        "#7f1c7d",
- 		"#00b2ef",
+		"#7f1c7d",
+	 	"#00b2ef",
 		"#00649d",
 		"#00a6a0",
 		"#ee3e96"
@@ -38,6 +43,8 @@ var RealtimeGraph = function(){
 
 		this.graph.render();
 
+		
+		
 		this.hoverDetail = new Rickshaw.Graph.HoverDetail( {
 			graph: this.graph,
 			xFormatter: function(x) {
@@ -102,45 +109,96 @@ var RealtimeGraph = function(){
 
 	}
 
-	this.graphData = function(data)
+	this.graphData = function(topic, data, allDeviceBool)
 	{
 		
-		var key = 0;
-		var seriesData = [];
+		var key;
+		
+	
 		var timestamp = Date.now()/1000;
 		var maxPoints = 25; 
-		for (var j in data.d)
-		{
-			if (typeof data.d[j] !== 'string') {
-			this.graph.series[key].data.push({x:timestamp,y:data.d[j]});
-			if (this.graph.series[key].data.length > maxPoints)
-			{
-				this.graph.series[key].data.splice(0,1);//only display up to maxPoints
+		
+		//var savedGraph;
+		
+		if(allDeviceBool) {
+			for(i=0;i<parametersPerDevice.length;i++) {
+				if(parametersPerDevice[i].topic == topic) {
+					key = parametersPerDevice[i].key;
+					console.log("megvan a kulcs: " + key);
+				}
 			}
-			key++;
+		} else {
+			key = 0;
 		}
+		
+		/*
+		for(i=0;i<globalKey;i++) {
+			savedGraph = this.graph.series[i];
+			console.log("mentett gráfok: " + i + "  " + savedGraph);
 		}
-		this.graph.render();	
-	}
-
-	this.displayChart = function(device,data){
-
-		var key = 0;
-		var seriesData = [];
-		var timestamp = Date.now()/1000;
+		*/
+		
+	
 		for (var j in data.d)
 		{
 			if (typeof data.d[j] !== 'string') {
-			seriesData[key]={};
-			seriesData[key].name=j;
-			seriesData[key].color = palette.color();
+						
+				this.graph.series[key].data.push({x:timestamp,y:data.d[j]});
+				if (this.graph.series[key].data.length > maxPoints) {
+					this.graph.series[key].data.splice(0,1);//only display up to maxPoints
+				}
+				key++;
+			}
+		}
+		
+		this.graph.render();
+	}
+	
 
-			seriesData[key].data=[];
+	this.displayChart = function(topic,data,allDeviceBool){
 
-			seriesData[key].data[0]={};
-			seriesData[key].data[0].x = timestamp;
-			seriesData[key].data[0].y = data.d[j];
+		var timestamp = Date.now()/1000;
+		
+		globalKey = 0;
+		
+		if(allDeviceBool) {
+			device = {};
+			device.topic = topic;
+			device.key = globalKey;
+			parametersPerDevice.push(device);
+			console.log("device.topic: " + device.topic);
+			console.log("device.key: " + device.key);
+			
+			for(i=0;i<parametersPerDevice.length;i++) {
+				console.log("parametersPerDevice: " + i + " " + parametersPerDevice[i].topic);
+			}
+			
+		} else {
+			//globalKey = 0;
+			seriesData = [];
+		}
+		
+		var tokens = topic.split('/');
+		
+		for (var j in data.d)
+		{
 
+			if (typeof data.d[j] !== 'string') {
+			
+			seriesData[globalKey]={};
+			//seriesData[globalKey].name=j;
+			seriesData[globalKey].name=tokens[4] + " - " + j;
+
+			
+			seriesData[globalKey].color = palette.color();
+			
+			
+			seriesData[globalKey].data=[];
+		
+			seriesData[globalKey].data[0]={};
+			seriesData[globalKey].data[0].x = timestamp;
+			seriesData[globalKey].data[0].y = data.d[j];
+			
 /*
 				if(data.d[j]>10){
 					seriesData[key].data[0].color = 'red';
@@ -148,12 +206,60 @@ var RealtimeGraph = function(){
 					seriesData[key].data[0].color = 'green';
 				}
 */
-
-				key++;
+			
+			globalKey++;
+			}
 		}
-		}
-
+		console.log("globalKey: ", globalKey);
 		this.drawGraph(seriesData);
 	}
+	
+	this.addToChart = function(topic, data) {
+		
+		var key = 0;
+		//var seriesData = [];
+		
+		var timestamp = Date.now()/1000;
+		
+		device = {};
+		device.topic = topic;
+		device.key = globalKey;
+		parametersPerDevice.push(device);
+		console.log("device.topic: " + device.topic);
+		console.log("device.key: " + device.key);
+		
+		var tokens = topic.split('/');
+		
+		for (var j in data.d)
+		{
 
+			if (typeof data.d[j] !== 'string') {
+			
+			seriesData[globalKey]={};
+			seriesData[globalKey].name=tokens[4] + " - " + j;
+			
+			seriesData[globalKey].color = palette.color();
+			
+			
+			seriesData[globalKey].data=[];
+		
+			seriesData[globalKey].data[0]={};
+			seriesData[globalKey].data[0].x = timestamp;
+			seriesData[globalKey].data[0].y = data.d[j];
+			console.log("data: " + seriesData[globalKey].data[0].y);
+			console.log("chart sorszáma: " + globalKey);
+			
+			
+			globalKey++;
+			}
+		}
+		console.log("globalKey: ", globalKey);
+		
+		$('#legend').empty();
+		this.legend = new Rickshaw.Graph.Legend( {
+			graph: this.graph,
+			element: document.getElementById('legend')
+
+		} );
+	}
 };

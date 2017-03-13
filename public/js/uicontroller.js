@@ -19,6 +19,8 @@ var api_key ="";
 var auth_token = "";
 var devices = [];
 
+var allDevice = [];
+
 // Get the OrgId and OrgName
 $.ajax
 ({
@@ -56,9 +58,15 @@ $.ajax
 	success: function (data, status, jq){
 
 		devices = data;
+		//console.log(devices[0].clientId);
+		
+		
 		for(var d in devices){
+			allDevice.push(devices[d].clientId);
 			$("#deviceslist").append("<option value="+devices[d].clientId+">"+devices[d].deviceId+"</option>");
 		}
+		
+		$("#deviceslist").append("<option value="+allDevice+">"+"All device"+"</option>");
 	},
 	error: function (xhr, ajaxOptions, thrownError) {
 		console.log(xhr.status);
@@ -74,7 +82,13 @@ $( "#deviceslist" ).change(function() {
 	if(isHistorian){
 		historian.plotHistoricGraph();
 	} else {
-		realtime.plotRealtimeGraph();
+		if($( "#deviceslist option:selected" ).text() == "All device") {
+
+			realtime.plotAllDeviceGraph();
+		} else {
+
+			realtime.plotRealtimeGraph();
+		}
 	}
 	
 });
