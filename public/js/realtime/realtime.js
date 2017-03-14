@@ -38,12 +38,11 @@ var Realtime = function(orgId, api_key, auth_token) {
 
 		// Initialize the Realtime Graph
 		var rtGraph = new RealtimeGraph();
-		client.onMessageArrived = function(msg) {
-			var topic = msg.destinationName;
-			console.log("topic: " + topic);
+		
+		function updateChart(fakeTopic, fakePayload){
+			var topic = fakeTopic;
+			var payload = fakePayload;
 			
-			
-			var payload = JSON.parse(msg.payloadString);
 			//First message, instantiate the graph  
 		    if (firstMessage) {
 				topicList2 = [];
@@ -96,7 +95,43 @@ var Realtime = function(orgId, api_key, auth_token) {
 					*/
 				}
 			}
-
+		}
+		
+		client.onMessageArrived = function(msg) {
+			
+			payload = JSON.parse(msg.payloadString);
+			console.log("onMessageArrived msg.payloadString: " + msg.payloadString)
+			//hack weather group data
+			fakeTopic = msg.destinationName;
+			
+			console.log("onMessageArrived payload.d.list: " + JSON.stringify( payload.d.list) );
+			for(var cityIdx = 0; cityIdx < payload.d.list.length; cityIdx++) {
+				var currentWeatherData = 
+				currCity = payload.d.list[cityIdx];
+				console.log("City: " + currCity.name);
+				
+				/*
+				currCity.main.temp
+				currCity.main.pressure
+				currCity.main.humidity
+				currCity.wind.speed
+				*/
+				
+				
+				tempWCStr = "\"" + currCity.name + "_temp\" : " + currCity.main.temp;
+				console.log("tempWCStr: " + tempWCStr);
+				pressureWCStr = "\"" + currCity.name + "_pressure\" : " + currCity.main.pressure;
+				humidityWCStr = "\"" + currCity.name + "_humidity\" : " + currCity.main.humidity;
+				windWCStr = "\"" + currCity.name + "_wind\" : " + currCity.wind.speed;
+				
+				allString = "{ \"d\" : { " + tempWCStr + ", " + pressureWCStr + ", " + humidityWCStr + ", " + windWCStr + " } }"; 
+				console.log("allString: " + allString);
+				
+				updateChart(fakeTopic, JSON.parse(allString));
+			}
+			
+			
+			updateChart(fakeTopic, payload);
 		};
 
 		client.onConnectionLost = function(e){
