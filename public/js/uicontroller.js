@@ -10,6 +10,8 @@
 * IBM - Initial Contribution
 *******************************************************************************/
 
+
+
 // Main UI 
 var orgId = "";
 var orgName = "";
@@ -19,7 +21,18 @@ var api_key ="";
 var auth_token = "";
 var devices = [];
 
-var allDevice = [];
+var deviceId;
+var allDevice = {};
+var deviceTypes = [];
+var newTypeBool = false;
+var bulkDevices = {};
+var bulkDevicesList = {};
+var bulkLimit = 5;
+var bulkSize = 0;
+var flag;
+
+
+
 
 // Get the OrgId and OrgName
 $.ajax
@@ -56,17 +69,121 @@ $.ajax
 	async: true,
 
 	success: function (data, status, jq){
-
+	
+		var sumDevices = 0;
 		devices = data;
-		//console.log(devices[0].clientId);
 		
 		
-		for(var d in devices){
-			allDevice.push(devices[d].clientId);
-			$("#deviceslist").append("<option value="+devices[d].clientId+">"+devices[d].deviceId+"</option>");
+		//create devices
+		for(i=0;i<devices.length;i++) {
+			for(var d in devices[i]){
+				sumDevices++;
+				//console.log(devices[i][d].typeId);
+				for(j=0;j<=deviceTypes.length;j++) {
+					if(deviceTypes[j] == devices[i][d].typeId) {
+						newTypeBool = false;
+						break;
+					} else {
+						newTypeBool = true;
+					}
+				}
+				
+				if(newTypeBool) {
+					deviceTypes.push(devices[i][d].typeId);
+					bulkDevicesList[devices[i][d].typeId] = [];
+					allDevice[devices[i][d].typeId] = [];
+					allDevice[devices[i][d].typeId].push(devices[i][d].clientId);
+				} else {
+					allDevice[devices[i][d].typeId].push(devices[i][d].clientId);
+				}
+			}
 		}
 		
-		$("#deviceslist").append("<option value="+allDevice+">"+"All device"+"</option>");
+		
+		//sort devices and add to the device list
+		for(var i in allDevice) {
+			allDevice[i].sort();
+			
+			for(var d in allDevice[i]) {
+				var tokens = allDevice[i][d].split(':');
+				deviceId = tokens[3];
+				
+				$("#deviceslist").append("<option value="+allDevice[i][d]+">"+deviceId+"</option>");
+			}
+		}
+
+		
+		//create bulk devices
+		for(var d in allDevice) {
+			if(allDevice[d].length > 5) {
+				if(allDevice[d].length == 400 || allDevice[d].length == 450) {
+					bulkSize = 50;
+					bulkLimit = allDevice[d].length / bulkSize;
+				} else {
+					bulkLimit = 5;
+					bulkSize = Math.floor(allDevice[d].length / bulkLimit);
+					//console.log("bulkSize: "+bulkSize);
+					if(bulkSize < bulkLimit) {
+						var temp = bulkLimit;
+						bulkLimit = bulkSize;
+						bulkSize = temp;
+					}
+				}
+				var k = 0;
+			
+				for(i=0;i<bulkLimit;i++) {
+					bulkDevices[i] = [];
+					
+					for(j=0;j<bulkSize;j++) {
+						bulkDevices[i].push(allDevice[d][k]);
+						//console.log(bulkDevices[i][j]);
+						k++;
+					}
+					console.log(j);
+
+					var tokens = bulkDevices[i][0].split(':');
+					var bulkDevicesName = tokens[3];
+					tokens = bulkDevices[i][bulkSize-1].split(':');
+					tokens = tokens[3].split('_');
+					bulkDevicesName += "-"+tokens[tokens.length-1];
+					bulkDevices[i].push(bulkDevicesName);
+					bulkDevicesList[d][bulkDevicesName] = bulkDevices[i];
+					
+					$("#bulklist").append("<option value="+bulkDevices[i]+">"+bulkDevicesName+"</option>");
+				}
+				
+				
+				//check for remainder
+				if(k < allDevice[d].length) {
+					bulkDevices[i] = [];
+					j = 0;
+					while(k < allDevice[d].length)  {
+						bulkDevices[i].push(allDevice[d][k]);
+						j++;
+						k++;
+					}
+
+					var tokens = bulkDevices[i][0].split(':');
+					var bulkDevicesName = tokens[3];
+					tokens = bulkDevices[i][j-1].split(':');
+					tokens = tokens[3].split('_');
+					bulkDevicesName += "-"+tokens[tokens.length-1];
+					bulkDevices[i].push(bulkDevicesName);
+					bulkDevicesList[d][bulkDevicesName] = bulkDevices[i];
+					
+					$("#bulklist").append("<option value="+bulkDevices[i]+">"+bulkDevicesName+"</option>");
+				}
+				
+			}
+		}
+		
+		console.log("Number of devices: "+sumDevices);
+		if(sumDevices < 50) {
+			$("#deviceslist").append("<option value=''>"+"All device"+"</option>");
+		}
+		$("#bulklist").append("<option value=''>"+"All group"+"</option>");
+		
+		
 	},
 	error: function (xhr, ajaxOptions, thrownError) {
 		console.log(xhr.status);
@@ -78,19 +195,27 @@ var realtime = new Realtime(orgId, api_key, auth_token);
 
 var historian = new Historian();
 $( "#deviceslist" ).change(function() {
-
-	if(isHistorian){
-		historian.plotHistoricGraph();
+	
+	if($( "#deviceslist option:selected" ).text() == "All device") {
+		flag = "all";
+		realtime.plotBulkDeviceGraph(allDevice, flag);
 	} else {
-		if($( "#deviceslist option:selected" ).text() == "All device") {
-
-			realtime.plotAllDeviceGraph();
+		if(isHistorian){
+			historian.plotHistoricGraph();
 		} else {
-
 			realtime.plotRealtimeGraph();
 		}
 	}
-	
+});
+
+$( "#bulklist" ).change(function() {
+
+	if($( "#bulklist option:selected" ).text() == "All group") {
+		flag = "group";
+		realtime.plotBulkDeviceGraph(bulkDevicesList, flag);
+	} else {
+		realtime.plotBulkDeviceGraph(null,null);
+	}
 });
 
 //Toggle historian options when user selects historic/live data radio buttons

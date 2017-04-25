@@ -22,7 +22,14 @@ var RealtimeGraph = function(){
 	 	"#00b2ef",
 		"#00649d",
 		"#00a6a0",
-		"#ee3e96"
+		"#ee3e96",
+		"#990000",
+		"#99cc00",
+		"#9900ff",
+		"#5e8000",
+		"#b3b300",
+		"#804000",
+		"#8a8a5c"
     ] } );
 
 	// function to invoke Rickshaw and plot the graph
@@ -55,6 +62,7 @@ var RealtimeGraph = function(){
 		this.annotator = new Rickshaw.Graph.Annotate( {
 			graph: this.graph,
 			element: document.getElementById('timeline')
+			//element: "pizza"
 		} );
 
 		this.legend = new Rickshaw.Graph.Legend( {
@@ -112,9 +120,7 @@ var RealtimeGraph = function(){
 	this.graphData = function(topic, data, allDeviceBool)
 	{
 		
-		var key;
 		
-	
 		var timestamp = Date.now()/1000;
 		var maxPoints = 25; 
 		
@@ -124,7 +130,7 @@ var RealtimeGraph = function(){
 			for(i=0;i<parametersPerDevice.length;i++) {
 				if(parametersPerDevice[i].topic == topic) {
 					key = parametersPerDevice[i].key;
-					console.log("megvan a kulcs: " + key);
+					//console.log("megvan a kulcs: " + key);
 				}
 			}
 		} else {
@@ -154,31 +160,72 @@ var RealtimeGraph = function(){
 		this.graph.render();
 	}
 	
+	
+	this.bulkGraphData = function(topic, bulkData, deviceType)
+	{
+		
+		
+		var timestamp = Date.now()/1000;
+		var maxPoints = 25; 
+		var sumData;
+		var avgData;
+		
+		console.log("graphDeviceType: "+deviceType);
+		if(deviceType == "group") {
+			
+			for(i=0;i<parametersPerDevice.length;i++) {
+				if(parametersPerDevice[i].topic == topic) {
+					key = parametersPerDevice[i].key;
+					//console.log("megvan a kulcs: " + key);
+				}
+			}
+		} else {
+			key = 0;
+		}
+		
+		for(var i in bulkData) {
+			console.log("bulkLength: "+bulkData[i].length)
+			sumData = 0;
+			for(var j in bulkData[i]) {
+				//console.log("bulkData: " +bulkData[i][j]);
+				sumData += bulkData[i][j];
+			}
+			avgData = sumData / bulkData[i].length;
+			console.log("avgData"+i+": "+avgData);
+			
+			this.graph.series[key].data.push({x:timestamp,y:avgData});
+		
+			if (this.graph.series[key].data.length > maxPoints) {
+				this.graph.series[key].data.splice(0,1);//only display up to maxPoints
+			}
+			key++;
+		}
+		
+		this.graph.render();
+	}
+	
 
-	this.displayChart = function(topic,data,allDeviceBool){
+	this.displayChart = function(topic,data,deviceType){
 
 		var timestamp = Date.now()/1000;
+		var tokens;
 		
 		globalKey = 0;
 		
-		if(allDeviceBool) {
+		if(deviceType == "all" || deviceType == "group") {
+			
 			device = {};
 			device.topic = topic;
 			device.key = globalKey;
 			parametersPerDevice.push(device);
-			console.log("device.topic: " + device.topic);
-			console.log("device.key: " + device.key);
-			
-			for(i=0;i<parametersPerDevice.length;i++) {
-				console.log("parametersPerDevice: " + i + " " + parametersPerDevice[i].topic);
-			}
-			
+		
 		} else {
-			//globalKey = 0;
 			seriesData = [];
 		}
 		
-		var tokens = topic.split('/');
+		if(deviceType != "bulk" || deviceType != "group") {
+			tokens = topic.split('/');
+		}
 		
 		for (var j in data.d)
 		{
@@ -186,8 +233,11 @@ var RealtimeGraph = function(){
 			if (typeof data.d[j] !== 'string') {
 			
 			seriesData[globalKey]={};
-			//seriesData[globalKey].name=j;
-			seriesData[globalKey].name=tokens[4] + " - " + j;
+			if(deviceType == "bulk" || deviceType == "group") {
+				seriesData[globalKey].name=topic + " - " + j;
+			} else {
+				seriesData[globalKey].name=tokens[4] + " - " + j;
+			}
 
 			
 			seriesData[globalKey].color = palette.color();
@@ -210,14 +260,14 @@ var RealtimeGraph = function(){
 			globalKey++;
 			}
 		}
-		console.log("globalKey: ", globalKey);
+		//console.log("globalKey: ", globalKey);
 		this.drawGraph(seriesData);
 	}
 	
-	this.addToChart = function(topic, data) {
+	this.addToChart = function(topic, data, deviceType) {
 		
 		var key = 0;
-		//var seriesData = [];
+		var tokens;
 		
 		var timestamp = Date.now()/1000;
 		
@@ -225,10 +275,10 @@ var RealtimeGraph = function(){
 		device.topic = topic;
 		device.key = globalKey;
 		parametersPerDevice.push(device);
-		console.log("device.topic: " + device.topic);
-		console.log("device.key: " + device.key);
 		
-		var tokens = topic.split('/');
+		if(deviceType != "group") {
+			tokens = topic.split('/');
+		}
 		
 		for (var j in data.d)
 		{
@@ -236,7 +286,11 @@ var RealtimeGraph = function(){
 			if (typeof data.d[j] !== 'string') {
 			
 			seriesData[globalKey]={};
-			seriesData[globalKey].name=tokens[4] + " - " + j;
+			if(deviceType == "group") {
+				seriesData[globalKey].name=topic + " - " + j;
+			} else {
+				seriesData[globalKey].name=tokens[4] + " - " + j;
+			}
 			
 			seriesData[globalKey].color = palette.color();
 			
@@ -245,15 +299,11 @@ var RealtimeGraph = function(){
 		
 			seriesData[globalKey].data[0]={};
 			seriesData[globalKey].data[0].x = timestamp;
-			seriesData[globalKey].data[0].y = data.d[j];
-			console.log("data: " + seriesData[globalKey].data[0].y);
-			console.log("chart sorszáma: " + globalKey);
-			
+			seriesData[globalKey].data[0].y = data.d[j];	
 			
 			globalKey++;
 			}
 		}
-		console.log("globalKey: ", globalKey);
 		
 		$('#legend').empty();
 		this.legend = new Rickshaw.Graph.Legend( {
