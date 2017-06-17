@@ -64,7 +64,8 @@ var Realtime = function(orgId, api_key, auth_token) {
 			
 			
 			//time limit for the tests
-			if(firstMessage) {
+			
+			/*if(firstMessage) {
 				start = 0 + new Date();
 				timeLimit = Math.floor(Date.now() / 1000)+600; 
 			}
@@ -82,7 +83,7 @@ var Realtime = function(orgId, api_key, auth_token) {
 				console.log("messagesSize_in_bytes: "+messageSize);
 				messageSize = 0;
 			}
-			
+			*/
 			
 		
 			if(messageCounter == topicList.length) {
