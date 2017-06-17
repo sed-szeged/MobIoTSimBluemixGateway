@@ -19,8 +19,9 @@ var orgName = "";
 var isHistorian = false;
 var api_key ="";
 var auth_token = "";
-var devices = [];
 
+
+var devices = [];
 var deviceId;
 var allDevice = {};
 var deviceTypes = [];
@@ -102,7 +103,7 @@ $.ajax
 		
 		//sort devices and add to the device list
 		for(var i in allDevice) {
-			allDevice[i].sort();
+			//allDevice[i].sort();
 			
 			for(var d in allDevice[i]) {
 				var tokens = allDevice[i][d].split(':');
@@ -178,7 +179,7 @@ $.ajax
 		}
 		
 		console.log("Number of devices: "+sumDevices);
-		if(sumDevices < 50) {
+		if(sumDevices < 25) {
 			$("#deviceslist").append("<option value=''>"+"All device"+"</option>");
 		}
 		$("#bulklist").append("<option value=''>"+"All group"+"</option>");

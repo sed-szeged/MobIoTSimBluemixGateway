@@ -10,6 +10,7 @@
 * IBM - Initial Contribution
 *******************************************************************************/
 
+
 var subscribeTopic = "";
 
 var Realtime = function(orgId, api_key, auth_token) {
@@ -41,7 +42,12 @@ var Realtime = function(orgId, api_key, auth_token) {
 	var deviceType;
 	var deviceTokens;
 
+	var weatherData = false;
 	
+	var start, end, timeLimit;
+	var messageSize = 0;
+	var messageNumber = 0;
+	var messageCounter = 0;
 	
 	this.initialize = function(){
 
@@ -53,20 +59,97 @@ var Realtime = function(orgId, api_key, auth_token) {
 		
 		client.onMessageArrived = function(msg) {
 			
-			var topic = msg.destinationName;
+			messageCounter++;
 			
+			
+			
+			//time limit for the tests
+			if(firstMessage) {
+				start = 0 + new Date();
+				timeLimit = Math.floor(Date.now() / 1000)+600; 
+			}
+			if(timeLimit == Math.floor(Date.now() / 1000)) {
+				for(i=0;i<topicList.length;i++) {
+					console.log("Unsubscribing to " + topicList[i]);
+					client.unsubscribe(topicList[i]);
+					console.log("unsubscribed " + i);
+				}
+				end = 0 + new Date();
+				console.log(start);
+				console.log(end);
+				
+				console.log("messageNumber: "+messageNumber);
+				console.log("messagesSize_in_bytes: "+messageSize);
+				messageSize = 0;
+			}
+			
+			
+		
+			if(messageCounter == topicList.length) {
+				console.log("topicList: "+topicList.length);
+				
+				// stress cpu
+				$.ajax
+				({
+					type: "POST",
+					url: "/stress/25",
+					data: 
+					{
+						limit: messageCounter,
+						sizeMultiplier: msg._getPayloadString().length
+					},
+					async: true,
+
+					success: function (data, status, jq){
+
+						console.log(data);
+					},
+					error: function (xhr, ajaxOptions, thrownError) {
+						if(xhr.status === 401 || xhr.status === 403){
+							console.log("Not authorized. Check your Api Key and Auth token");
+							window.location.href="loginfail";
+						}
+						console.log("Not able to fetch the Organization details");
+						console.log(xhr.status);
+						console.log(thrownError);
+					}
+				});
+				
+				messageCounter = 0;
+			}
+
+			
+			
+			
+			//save message size
+			messageSize += msg._getPayloadString().length;
+			console.log(msg._getPayloadString().length);
+			messageNumber++;
+			console.log("messagesize:"+messageSize);
+			
+			var topic = msg.destinationName;
 			var tokens;
 			var exitLoop = false;
+			
+			tokens = msg.destinationName.split('/');
+			
+			//check if the message contains WeatherData
+			if(tokens[2] == "MobIoTSimWeather") {
+				weatherData = true;
+			} else {
+				weatherData = false;
+			}
+			
+			
 			console.log(deviceType);
 			if(deviceType == "group") {
-				tokens = msg.destinationName.split('/')
 				topic = tokens[4];
 			}
 			
 		
 			
 			var payload = JSON.parse(msg.payloadString);
-			//console.log("payload:"+msg.payloadString);
+			console.log("payload:"+msg.payloadString);
 			
 			//First message, instantiate the graph  
 		    if (firstMessage) {
@@ -97,8 +180,11 @@ var Realtime = function(orgId, api_key, auth_token) {
 					topic = bulkDeviceName;
 				}
 				
-		    	rtGraph.displayChart(topic,payload,deviceType);
+		    	rtGraph.displayChart(topic,payload,deviceType,weatherData);
+				
 		    } else if(groupDeviceBool) {
+				
+				//console.log(groupTopicList);
 				
 				var i, j;
 				for(i in topicList2) {
@@ -130,7 +216,7 @@ var Realtime = function(orgId, api_key, auth_token) {
 								topicList2[k] = groupTopicList[k];
 								bulkData[k] = [];
 							
-								rtGraph.addToChart(k,payload,deviceType);
+								rtGraph.addToChart(k,payload,deviceType,weatherData);
 								break;
 							}
 						}
@@ -138,20 +224,31 @@ var Realtime = function(orgId, api_key, auth_token) {
 					
 				} else {
 					//console.log(topic+" - (i) "+i);
-					var p;
-					for(p in payload.d) {
+					
+					//check if weatherData and build Weather object
+					if(weatherData) {
+						var dataObject = {
+							temp: payload.d.main.temp,
+							humidity: payload.d.main.humidity,
+							wind_speed: payload.d.wind.speed
+						};
+					} else {
+						var dataObject = payload.d;
+					}
+					
+					for(var p in dataObject) {
 						console.log(Object.keys(bulkData[i]).length);
-						if(Object.keys(bulkData[i]).length < Object.keys(payload.d).length) {
+						if(Object.keys(bulkData[i]).length < Object.keys(dataObject).length) {
 							bulkData[i][p] = [];
 							parameterName = p;
 						}
 					
-						bulkData[i][p].push(payload.d[p]);
+						bulkData[i][p].push(dataObject[p]);
 						//console.log(bulkData[i][p]);
 					}
 				
 					if(bulkData[i][p].length == groupTopicList[i].length-1) {
-						rtGraph.bulkGraphData(i,bulkData[i],deviceType);
+						rtGraph.bulkGraphData(i,bulkData[i],deviceType,weatherData);
 						bulkData[i] = {};
 						parameterName = null;
 					}		
@@ -174,38 +271,49 @@ var Realtime = function(orgId, api_key, auth_token) {
 				
 				if(newTopicBool) {
 					topicList2.push(topic);
-					rtGraph.addToChart(topic,payload);
+					rtGraph.addToChart(topic,payload,deviceType,weatherData);
 				} else {
-					rtGraph.graphData(topic,payload,allDeviceBool);
+					rtGraph.graphData(topic,payload,allDeviceBool,weatherData);
 				}
 				
 				
 			} else if(bulkDeviceBool == true) {
 				
-				for(var j in payload.d) {
-					if(Object.keys(bulkData).length < Object.keys(payload.d).length && bulkData.constructor === Object) {
+				//check if weatherData and build Weather object
+				if(weatherData) {
+					var dataObject = {
+						temp: payload.d.main.temp,
+						humidity: payload.d.main.humidity,
+						wind_speed: payload.d.wind.speed
+					};
+				} else {
+					var dataObject = payload.d;
+				}
+				
+				for(var j in dataObject) {
+					if(Object.keys(bulkData).length < Object.keys(dataObject).length && bulkData.constructor === Object) {
 						bulkData[j] = [];
 						parameterName = j;
 					}
 			
-					bulkData[j].push(payload.d[j]);
-					//console.log(bulkData[j]);
+					bulkData[j].push(dataObject[j]);
+					console.log(bulkData[j]);
 				}
 				
 				if(bulkData[parameterName].length == topicList.length) {
-					rtGraph.bulkGraphData(bulkDeviceName,bulkData,deviceType);
+					rtGraph.bulkGraphData(bulkDeviceName,bulkData,deviceType,weatherData);
 					bulkData = {};
 					parameterName = null;
 				}
 			} else {
 				
-				rtGraph.graphData(topic,payload,allDeviceBool);
+				rtGraph.graphData(topic,payload,allDeviceBool,weatherData);
 			}
 
 			
 			for (var j in payload.d) {
 				if (typeof payload.d[j] !== 'string') {
-					console.log("payload.d[j]: " + payload.d[j]);
+					//console.log("payload.d[j]: " + payload.d[j]);
 					/*
 					if(payload.d[j] > 20){
 						var warningMsg = new Messaging.Message("{ \"cmd\" : \"warning (" + payload.d[j] + ")\" }");
@@ -289,10 +397,12 @@ var Realtime = function(orgId, api_key, auth_token) {
 		$('#timeline').empty();
 		$('#legend').empty();
 		firstMessage = true;
+		topicList = [];
 		deviceType = "normal";
 
 		subscribeTopic = "iot-2/type/" + tokens[2] + "/id/" + tokens[3] + "/evt/+/fmt/json";
 		client.subscribe(subscribeTopic,subscribeOptions);
+		topicList.push(subscribeTopic);
 	}
 	
 

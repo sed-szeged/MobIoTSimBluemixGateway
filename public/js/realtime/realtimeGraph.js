@@ -10,7 +10,7 @@
 * IBM - Initial Contribution
 *******************************************************************************/
 
-var parametersPerDevice = [];
+var messageOrder = [];
 var globalKey = 0;
 var seriesData = [];
 
@@ -117,20 +117,22 @@ var RealtimeGraph = function(){
 
 	}
 
-	this.graphData = function(topic, data, allDeviceBool)
+	this.graphData = function(topic, data, allDeviceBool, weatherData)
 	{
 		
 		
 		var timestamp = Date.now()/1000;
-		var maxPoints = 25; 
+		var maxPoints = 15;
+		var dataObject;		
 		
 		//var savedGraph;
 		
 		if(allDeviceBool) {
-			for(i=0;i<parametersPerDevice.length;i++) {
-				if(parametersPerDevice[i].topic == topic) {
-					key = parametersPerDevice[i].key;
+			for(i=0;i<messageOrder.length;i++) {
+				if(messageOrder[i].topic == topic) {
+					key = messageOrder[i].key;
 					//console.log("megvan a kulcs: " + key);
+					break;
 				}
 			}
 		} else {
@@ -144,12 +146,22 @@ var RealtimeGraph = function(){
 		}
 		*/
 		
+		//check if weatherData
+		if(weatherData) {
+			dataObject = {
+				temp: data.d.main.temp,
+				humidity: data.d.main.humidity,
+				wind_speed: data.d.wind.speed
+			};
+		} else {
+			dataObject = data.d;
+		}
 	
-		for (var j in data.d)
+		for (var j in dataObject)
 		{
-			if (typeof data.d[j] !== 'string') {
+			if (typeof dataObject[j] !== 'string') {
 						
-				this.graph.series[key].data.push({x:timestamp,y:data.d[j]});
+				this.graph.series[key].data.push({x:timestamp,y:dataObject[j]});
 				if (this.graph.series[key].data.length > maxPoints) {
 					this.graph.series[key].data.splice(0,1);//only display up to maxPoints
 				}
@@ -161,28 +173,42 @@ var RealtimeGraph = function(){
 	}
 	
 	
-	this.bulkGraphData = function(topic, bulkData, deviceType)
+	this.bulkGraphData = function(topic, bulkData, deviceType,weatherData)
 	{
 		
 		
 		var timestamp = Date.now()/1000;
-		var maxPoints = 25; 
+		var maxPoints = 15; 
+		var dataObject;
 		var sumData;
 		var avgData;
 		
 		console.log("graphDeviceType: "+deviceType);
 		if(deviceType == "group") {
 			
-			for(i=0;i<parametersPerDevice.length;i++) {
-				if(parametersPerDevice[i].topic == topic) {
-					key = parametersPerDevice[i].key;
+			for(i=0;i<messageOrder.length;i++) {
+				if(messageOrder[i].topic == topic) {
+					key = messageOrder[i].key;
 					//console.log("megvan a kulcs: " + key);
+					break;
 				}
 			}
 		} else {
 			key = 0;
 		}
 		
+		/*
+		//check if weatherData and build the Weather object
+		if(weatherData) {
+			dataObject = {
+				temp: data.d.main.temp,
+				humidity: data.d.main.humidity,
+				wind_speed: data.d.wind.speed
+			};
+		} else {
+			dataObject = data.d;
+		}
+		*/
 		for(var i in bulkData) {
 			console.log("bulkLength: "+bulkData[i].length)
 			sumData = 0;
@@ -205,10 +231,13 @@ var RealtimeGraph = function(){
 	}
 	
 
-	this.displayChart = function(topic,data,deviceType){
+	
+	
+	this.displayChart = function(topic, data, deviceType, weatherData){
 
 		var timestamp = Date.now()/1000;
 		var tokens;
+		var dataObject;
 		
 		globalKey = 0;
 		
@@ -217,7 +246,7 @@ var RealtimeGraph = function(){
 			device = {};
 			device.topic = topic;
 			device.key = globalKey;
-			parametersPerDevice.push(device);
+			messageOrder.push(device);
 		
 		} else {
 			seriesData = [];
@@ -227,81 +256,110 @@ var RealtimeGraph = function(){
 			tokens = topic.split('/');
 		}
 		
-		for (var j in data.d)
-		{
-
-			if (typeof data.d[j] !== 'string') {
-			
-			seriesData[globalKey]={};
-			if(deviceType == "bulk" || deviceType == "group") {
-				seriesData[globalKey].name=topic + " - " + j;
-			} else {
-				seriesData[globalKey].name=tokens[4] + " - " + j;
-			}
-
-			
-			seriesData[globalKey].color = palette.color();
-			
-			
-			seriesData[globalKey].data=[];
+		//check if weatherData and build the Weather object
+		if(weatherData) {
+			dataObject = {
+				temp: data.d.main.temp,
+				humidity: data.d.main.humidity,
+				wind_speed: data.d.wind.speed
+			};
+		} else {
+			dataObject = data.d;
+		}
 		
-			seriesData[globalKey].data[0]={};
-			seriesData[globalKey].data[0].x = timestamp;
-			seriesData[globalKey].data[0].y = data.d[j];
-			
-/*
-				if(data.d[j]>10){
-					seriesData[key].data[0].color = 'red';
-				}else{
-					seriesData[key].data[0].color = 'green';
+		for (var j in dataObject)
+		{
+			//console.log(data.d);
+			if (typeof dataObject[j] !== 'string') {
+				
+				seriesData[globalKey]={};
+				if(deviceType == "bulk" || deviceType == "group") {
+					seriesData[globalKey].name=topic + " - " + j;
+				} else if(weatherData && deviceType == "normal") {
+					seriesData[globalKey].name=data.d.name + " - " + j;
+				} else {
+					seriesData[globalKey].name=tokens[4] + " - " + j;
 				}
-*/
+
+				
+				seriesData[globalKey].color = palette.color();
+				
+				
+				seriesData[globalKey].data=[];
 			
-			globalKey++;
+				seriesData[globalKey].data[0]={};
+				seriesData[globalKey].data[0].x = timestamp;
+				seriesData[globalKey].data[0].y = dataObject[j];
+				
+					/*
+					if(data.d[j]>10){
+						seriesData[key].data[0].color = 'red';
+					}else{
+						seriesData[key].data[0].color = 'green';
+					}
+					*/
+				
+				globalKey++;
 			}
 		}
+		
+		
 		//console.log("globalKey: ", globalKey);
 		this.drawGraph(seriesData);
 	}
 	
-	this.addToChart = function(topic, data, deviceType) {
+	this.addToChart = function(topic, data, deviceType, weatherData) {
 		
 		var key = 0;
 		var tokens;
+		var dataObject;
 		
 		var timestamp = Date.now()/1000;
 		
 		device = {};
 		device.topic = topic;
 		device.key = globalKey;
-		parametersPerDevice.push(device);
+		messageOrder.push(device);
 		
 		if(deviceType != "group") {
 			tokens = topic.split('/');
 		}
 		
-		for (var j in data.d)
+		//check if weatherData and build the Weather object
+		if(weatherData) {
+			dataObject = {
+				temp: data.d.main.temp,
+				humidity: data.d.main.humidity,
+				wind_speed: data.d.wind.speed
+			};
+		} else {
+			dataObject = data.d;
+		}
+		
+		for (var j in dataObject)
 		{
 
-			if (typeof data.d[j] !== 'string') {
+			if (typeof dataObject[j] !== 'string') {
 			
-			seriesData[globalKey]={};
-			if(deviceType == "group") {
-				seriesData[globalKey].name=topic + " - " + j;
-			} else {
-				seriesData[globalKey].name=tokens[4] + " - " + j;
-			}
+				seriesData[globalKey]={};
+				if(deviceType == "group") {
+					seriesData[globalKey].name=topic + " - " + j;
+				} else if(weatherData && deviceType == "all") {
+					seriesData[globalKey].name=data.d.name + " - " + j;
+				} else {
+					seriesData[globalKey].name=tokens[4] + " - " + j;
+				}
+				
+				seriesData[globalKey].color = palette.color();
+				
+				
+				seriesData[globalKey].data=[];
 			
-			seriesData[globalKey].color = palette.color();
-			
-			
-			seriesData[globalKey].data=[];
-		
-			seriesData[globalKey].data[0]={};
-			seriesData[globalKey].data[0].x = timestamp;
-			seriesData[globalKey].data[0].y = data.d[j];	
-			
-			globalKey++;
+				seriesData[globalKey].data[0]={};
+				seriesData[globalKey].data[0].x = timestamp;
+				seriesData[globalKey].data[0].y = dataObject[j];	
+				
+				globalKey++;
 			}
 		}
 		

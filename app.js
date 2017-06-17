@@ -18,8 +18,21 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var session = require('express-session');
 
-
 var index = require('./routes/index');
+
+//appmetrics
+var appm = require('appmetrics-dash').monitor();
+
+//cloud appmetrics
+//var appm = require('appmetrics-dash');
+//require('appmetrics-dash').attach({appmetrics:appm});
+
+/*
+//express appmetrics
+var dash = require('appmetrics-dash').attach()
+var index = require('./routes/index');
+*/
+
 
 var app = express();
 

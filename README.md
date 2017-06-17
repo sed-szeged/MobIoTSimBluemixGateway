@@ -138,20 +138,3 @@ make the REST call to get the historical data
 [Rickshaw]:http://code.shutterstock.com/rickshaw/
 [MQTT paho client]:http://www.eclipse.org/paho/clients/js/
 [recipe]:https://developer.ibm.com/iot/recipes/visualize-data/
-
-
-Docker:
-==================
-### Build the docker image: 
-docker build -t mobiotsimbluemix .
-
-### Run: 
-docker run -p 8081:7000 -d mobiotsimbluemix
-
-### Access: 
-
-#### Windows:
-< docker-machine-ip >:8081
-The "docker-machine ip" command will tell you the ip of the docker machine.
-#### Other:
-localhost:8081
