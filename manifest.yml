@@ -1,9 +1,9 @@
 applications:
 - disk_quota: 1024M
-  host: <your-bluemix-hostname>
-  name: <your-bluemix-appname>
+  host: mobiotsimgateway
+  name: mobiotsimgateway
   command: node app.js
   path: .
-  domain: mybluemix.net
+  domain: eu-gb.mybluemix.net
   instances: 1
   memory: 128M

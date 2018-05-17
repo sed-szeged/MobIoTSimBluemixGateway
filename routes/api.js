@@ -37,13 +37,15 @@ router.get('/organization', function(req, res) {
 
 // api to get devices of a org
 router.get('/organization/getdevices', function(req, res) {
-
+  
+  var devices = [];
   var orgId = req.session.api_key.split('-')[1];
-  console.log("Fetching the devices for orgId "+orgId); 
+  console.log("Fetching the devices for orgId "+orgId);
+
   
   util.orgId = orgId;
   console.log("Calling get");
-  util.getDevices(req.session.api_key, req.session.auth_token, res);
+  util.paging(req.session.api_key, req.session.auth_token, res, null, devices);
   
 });
 

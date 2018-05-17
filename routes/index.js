@@ -16,6 +16,7 @@ var router = express.Router();
 var api_routes = require('./api');
 var dashboard_routes = require('./dashboard');
 var auth_routes = require('./auth');
+var stress_routes = require('./stress');
 
 //all requests come here to validate the if api key is present
 //else redirect to login
@@ -45,6 +46,7 @@ router.use(function(req, res, next) {
 	}
 	// for all others, redirect to login page
 	else if(! req.session.api_key && req.path.indexOf('login') === -1) {
+		console.log("ez fut le");
 		res.redirect("/login");
 	} else {
 		next();
@@ -57,6 +59,9 @@ router.use('/',auth_routes);
 router.use('/dashboard', dashboard_routes);
 //proxy api routes TODO: remove this after datapower handles the CORS requests
 router.use('/api/v0002',api_routes);
+
+//stress the app
+router.use('/stress', stress_routes);
 
 function getAuthFromVCAP(VCAP_SERVICES) {
 
